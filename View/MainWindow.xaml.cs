@@ -158,17 +158,19 @@ internal sealed class PromptPanel : UserControl {
          Margin = new Thickness (10.0),
          FontWeight = FontWeights.Bold,
       };
-      tblock.SetBinding (TextBlock.TextProperty, new Binding (nameof(mWidget.Prompt)) { Source = widget, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
+      tblock.SetBinding (TextBlock.TextProperty, new Binding (nameof (mWidget.Prompt)) { Source = widget, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
       sp.Children.Add (tblock);
       for (int i = 0, len = labels.Length; i < len; i++) {
          var str = labels[i];
-         var label = new Label () { Content = str + ":", Margin = new Thickness (10.0)};
+         var label = new Label () { Content = str + ":", Margin = new Thickness (10.0) };
          var tb = new TextBox () {
-            Name = str + "TextBox",
+            Name = str,
             Width = width,
             Height = 20,
          };
          tb.PreviewKeyDown += OnPreviewKeyDown;
+         tb.GotFocus += (s, e) => tb.SelectAll ();
+         tb.LostFocus += (s, e) => mWidget?.ReceiveInput (str);
          var binding = new Binding (str) { Source = widget, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged };
          tb.SetBinding (TextBox.TextProperty, binding);
          sp.Children.Add (label);
@@ -180,11 +182,14 @@ internal sealed class PromptPanel : UserControl {
 
    #region Implementation -------------------------------------------
    void OnPreviewKeyDown (object sender, KeyEventArgs e) {
+      if (sender is not TextBox tb) return;
       var key = e.Key;
       e.Handled = !((key is >= Key.D0 and <= Key.D9) ||
                     (key is >= Key.NumPad0 and <= Key.NumPad9) ||
                     (key is Key.Back or Key.Delete or Key.Left or Key.Right or Key.Tab));
-      if (key is Key.Enter) mWidget?.ReceiveInput (CadPoint.Default);
+      if (key is Key.Enter or Key.Tab) {
+         mWidget?.ReceiveInput (tb.Name);
+      }
    }
    #endregion
 

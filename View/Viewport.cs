@@ -56,6 +56,7 @@ internal sealed class Viewport : Canvas {
       mBGPen = new (Brushes.LightGray, 1.5);
       mDwgPen = new (Brushes.Black, mDwgLineWeight);
       mPreviewPen = new (mDwgBrush, mDwgLineWeight);
+      mOrthoPen = new Pen (Brushes.Blue, 1.0) { DashStyle = DashStyles.Dash };
       MouseMove += OnMouseMove;
       MouseUp += (s, e) => { };
       MouseLeftButtonDown += OnMouseLeftButtonDown;
@@ -65,6 +66,7 @@ internal sealed class Viewport : Canvas {
 
    void OnMouseLeftButtonDown (object sender, MouseButtonEventArgs e) {
       var pt = ToCadPoint (e.GetPosition (this));
+      if (mSnapPoint.IsSet) pt = mSnapPoint;
       if (!mStartPt.IsSet) mStartPt = pt;
       if (mWidget != null) {
          mWidget.ReceiveInput (pt);
@@ -79,7 +81,15 @@ internal sealed class Viewport : Canvas {
    }
 
    void OnMouseMove (object sender, MouseEventArgs e) {
+      mSnapPoint.Reset ();
       mEndPt = ToCadPoint (e.GetPosition (this));
+      foreach (var entity in mEntities!) {
+         if (mEndPt.HasNearestPoint (entity.Vertices, 20, out var nearestPoint)) {
+            mSnapPoint = nearestPoint;
+            break;
+         }
+      }
+      if (mSnapPoint.IsSet) mEndPt = mSnapPoint;
       if (mCords != null) mCords.Text = $"X : {mEndPt.X}  Y : {mEndPt.Y}";
       InvalidateVisual ();
    }
@@ -95,17 +105,44 @@ internal sealed class Viewport : Canvas {
    }
 
    protected override void OnRender (DrawingContext dc) {
+      var (startPt, endPt) = (ToWindowsPoint (mStartPt), ToWindowsPoint (mEndPt));
+      var angle = mStartPt.AngleTo (mEndPt);
+      if (angle is < 2.0 and > -2 or > 178.0 and < 182.0) {
+         dc.DrawLine (mOrthoPen, new (0, startPt.Y), new (mViewportRect.Width, startPt.Y));
+         mSnapPoint = new (mEndPt.X, mStartPt.Y);
+      }
+      if (angle is > 88.0 and < 92.0 or > 268 and < 272) {
+         dc.DrawLine (mOrthoPen, new (startPt.X, 0), new (startPt.X, mViewportRect.Height));
+         mSnapPoint = new (mStartPt.X, mEndPt.Y);
+      }
+      if (mEndPt.Y is < 2.0 and > -2.0) {
+         dc.DrawLine (mOrthoPen, new (0, mViewportCenter.Y), new (mViewportRect.Width, mViewportCenter.Y));
+         mSnapPoint = new (mEndPt.X, 0);
+      }
+      if (mEndPt.X is < 2.0 and > -2.0) {
+         dc.DrawLine (mOrthoPen, new (mViewportCenter.X, 0), new (mViewportCenter.X, mViewportRect.Height));
+         mSnapPoint = new (0, mEndPt.Y);
+      }
+      if (mEntities != null && mEntities.Any (e => e.Vertices.Any (v => v.X < mEndPt.X + 2 && v.X > mEndPt.X - 2))) {
+         dc.DrawLine (mOrthoPen, new (endPt.X, 0), new (endPt.X, mViewportRect.Height));
+         mSnapPoint = mEndPt;
+      }
+      if (mEntities != null && mEntities.Any (e => e.Vertices.Any (v => v.Y < mEndPt.Y + 2 && v.Y > mEndPt.Y - 2))) {
+         dc.DrawLine (mOrthoPen, new (0, endPt.Y), new (mViewportRect.Width, endPt.Y));
+         mSnapPoint = mEndPt;
+      }
+
       if (mStartPt.IsSet && mEndPt.IsSet) {
          switch (mWidget) {
             case LineWidget:
-               dc.DrawLine (mPreviewPen, ToWindowsPoint (mStartPt), ToWindowsPoint (mEndPt));
+               dc.DrawLine (mPreviewPen, startPt, endPt);
                break;
             case RectWidget:
-               dc.DrawRectangle (Brushes.Transparent, mPreviewPen, new Rect (ToWindowsPoint (mStartPt), ToWindowsPoint (mEndPt)));
+               dc.DrawRectangle (Brushes.Transparent, mPreviewPen, new Rect (startPt, endPt));
                break;
             case CircleWidget:
                var radius = mStartPt.DistanceTo (mEndPt);
-               dc.DrawEllipse (Brushes.Transparent, mPreviewPen, ToWindowsPoint (mStartPt), radius, radius);
+               dc.DrawEllipse (Brushes.Transparent, mPreviewPen, startPt, radius, radius);
                break;
          }
       }
@@ -124,6 +161,12 @@ internal sealed class Viewport : Canvas {
             }
          }
       }
+      if (mSnapPoint.IsSet) {
+         var snapSize = 5;
+         var snapPt = ToWindowsPoint (mSnapPoint);
+         var v = new Vector (snapSize, snapSize);
+         dc.DrawRectangle (Brushes.White, mDwgPen, new (snapPt - v, snapPt + v));
+      }
       dc.DrawRectangle (Background, mBGPen, mViewportRect);
       dc.DrawLine (mAxisPen, mHAxis.P1, mHAxis.P2);
       dc.DrawLine (mAxisPen, mVAxis.P1, mVAxis.P2);
@@ -134,9 +177,9 @@ internal sealed class Viewport : Canvas {
    #region Private Data ---------------------------------------------
    double mDwgLineWeight;
    Rect mViewportRect;
-   Pen? mAxisPen, mBGPen, mDwgPen, mPreviewPen;
+   Pen? mAxisPen, mBGPen, mDwgPen, mPreviewPen, mOrthoPen;
    Brush? mDwgBrush;
-   CadPoint mEndPt, mStartPt, mViewportCenter;
+   CadPoint mEndPt, mStartPt, mViewportCenter, mSnapPoint;
    List<Entity>? mEntities;
    Widget? mWidget;
    TextBlock? mCords;

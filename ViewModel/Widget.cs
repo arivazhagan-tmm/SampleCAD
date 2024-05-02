@@ -14,24 +14,28 @@ public abstract class Widget : INotifyPropertyChanged {
    #endregion
 
    #region Methods --------------------------------------------------
-   public virtual void ReceiveInput (CadPoint pt) {
-      if (mStartPoint.IsSet) {
-         mEndPoint = pt;
-         CreateEntity ();
-         mStartPoint.Reset ();
-         mEndPoint.Reset ();
-         mPromptIndex = 0;
-      } else {
-         mStartPoint = pt;
-         UpdateParams ();
-      }
-      if (mPrompts != null && mPromptIndex < mPrompts.Length) Prompt = mPrompts[mPromptIndex++];
+   public virtual void ReceiveInput (object obj) {
+      if (obj is CadPoint pt)
+         if (mStartPoint.IsSet) {
+            mEndPoint = pt;
+            CreateEntity ();
+            mStartPoint.Reset ();
+            mEndPoint.Reset ();
+            mPromptIndex = 0;
+         } else {
+            mPromptIndex++;
+            mStartPoint = pt;
+            mEndPoint.Reset ();
+            UpdateParams ();
+         }
+      if (mPrompts != null && mPromptIndex < mPrompts.Length) Prompt = mPrompts[mPromptIndex];
    }
 
    public virtual void Initialize () {
       mEntity = null;
       mStartPoint = CadPoint.Default;
-      if (mPrompts != null && mPrompts.Length > 0) Prompt = mPrompts[0];
+      mPromptIndex = 0;
+      if (mPrompts != null && mPrompts.Length > 0) Prompt = mPrompts[mPromptIndex];
    }
    #endregion
 
@@ -73,6 +77,23 @@ public class LineWidget : Widget {
    #endregion
 
    #region Methods --------------------------------------------------
+   public override void ReceiveInput (object obj) {
+      if (obj is string parameter) {
+         switch (parameter) {
+            case nameof (X) or nameof (Y):
+               mStartPoint.Reset ();
+               base.ReceiveInput (new CadPoint (X, Y));
+               break;
+               case nameof (DX) or nameof (DY):
+               mStartPoint = new (X, Y);
+               base.ReceiveInput (new CadPoint (X + DX, Y + DY));
+               UpdateParams ();
+               break;
+         }
+      }
+      else base.ReceiveInput(obj);
+   }
+
    public override string ToString () => "Line";
    #endregion
 
@@ -84,10 +105,14 @@ public class LineWidget : Widget {
       (DX, DY) = (mEndPoint - mStartPoint).Cords ();
    }
 
+   void SetEndPoint () {
+      mEndPoint = mStartPoint + (mDX, mDY);
+      UpdateParams ();
+   }
+
    protected override void UpdateParams () {
-      if (mStartPoint.IsSet) {
-         (X, Y) = mStartPoint.Cords ();
-      }
+      if (mStartPoint.IsSet) (X, Y) = mStartPoint.Cords ();
+      if (mEndPoint.IsSet) (Angle, Length) = (mStartPoint.AngleTo (mEndPoint), mStartPoint.DistanceTo (mEndPoint));
    }
    #endregion
 

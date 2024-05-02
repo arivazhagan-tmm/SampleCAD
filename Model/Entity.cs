@@ -3,13 +3,14 @@
 #region class Entity ------------------------------------------------------------------------------
 public abstract class Entity {
    #region Properties -----------------------------------------------
-   public virtual CadPoint[] Vertices => [mStartPoint, mEndPoint];
+   public virtual List<CadPoint> Vertices => mVertices ??= [mStartPoint, mEndPoint];
    public CadPoint StartPoint { get => mStartPoint; protected set => mStartPoint = value; }
    public CadPoint EndPoint { get => mEndPoint; protected set => mEndPoint = value; }
    #endregion
 
    #region Private Data ---------------------------------------------
    protected CadPoint mStartPoint, mEndPoint;
+   protected List<CadPoint>? mVertices;
    #endregion
 }
 #endregion
@@ -45,6 +46,9 @@ public class Rectangle : Entity {
    #endregion
 
    #region Properties -----------------------------------------------
+   public override List<CadPoint> Vertices => mVertices ??= 
+   [mStartPoint, mEndPoint, new CadPoint (mStartPoint.X + mEndPoint.X, mStartPoint.Y + mEndPoint.Y) * 0.5, 
+    new CadPoint(mStartPoint.X, mEndPoint.Y), new CadPoint(mEndPoint.X, mStartPoint.Y)];
    public double Height => mHeight;
    public double Width => mWidth;
    #endregion
