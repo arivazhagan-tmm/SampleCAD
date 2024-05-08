@@ -19,7 +19,7 @@ public struct CadPoint {
    public static CadPoint operator + (CadPoint pt, double f) => new (pt.X + f, pt.Y + f);
    public static CadPoint operator - (CadPoint pt, double f) => new (pt.X - f, pt.Y - f);
    public static CadPoint operator / (CadPoint pt, double f) => new (pt.X / f, pt.Y / f);
-   public static CadPoint operator + (CadPoint pt, (double dx, double dy) delta) => new (pt.X + delta.dx, pt.Y + delta.dy);
+   public static CadPoint operator + (CadPoint pt, (double dx, double dy) del) => new (pt.X + del.dx, pt.Y + del.dy);
    public static CadPoint operator - (CadPoint p1, CadPoint p2) => new (p1.X - p2.X, p1.Y - p2.Y);
    public static CadPoint operator * (CadPoint pt, double f) => new (pt.X * f, pt.Y * f);
    #endregion

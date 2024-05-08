@@ -4,7 +4,6 @@ using System.Windows.Input;
 using System.Windows.Controls;
 using Model;
 using ViewModel;
-using System.Windows.Documents;
 
 namespace View;
 
@@ -56,12 +55,7 @@ internal sealed class Viewport : Canvas {
    #endregion
 
    #region Implementation -------------------------------------------
-   CadPoint ToCadPoint (Point pt) {
-      pt = mInvProjXfm.Transform (pt);
-      return new CadPoint (pt.X, pt.Y);
-   }
-
-   Point ToWindowsPoint (CadPoint pt) => mProjXfm.Transform (new Point (pt.X, pt.Y));
+   Point Project (CadPoint pt) => mProjXfm.Transform (pt.Convert ());
 
    void OnLoaded (object sender, RoutedEventArgs e) {
       Height = 650;
@@ -89,10 +83,6 @@ internal sealed class Viewport : Canvas {
       MouseMove += OnMouseMove;
       MouseWheel += OnMouseWheel; ;
       MouseLeftButtonDown += OnMouseLeftButtonDown;
-      MouseDown += (s, e) => {
-         mPanStartPt.Reset ();
-         if (e.MiddleButton is MouseButtonState.Pressed) mPanStartPt = ToCadPoint (e.GetPosition (this));
-      };
       #endregion
 
       mCords = new TextBlock () { Background = Brushes.Transparent };
@@ -100,7 +90,7 @@ internal sealed class Viewport : Canvas {
    }
 
    void OnMouseLeftButtonDown (object sender, MouseButtonEventArgs e) {
-      var pt = ToCadPoint (e.GetPosition (this));
+      var pt = e.GetPosition (this).Transform (mInvProjXfm).Convert ();
       if (mSnapPoint.IsSet) pt = mSnapPoint;
       if (!mStartPt.IsSet) mStartPt = pt;
       if (mWidget != null) {
@@ -117,7 +107,7 @@ internal sealed class Viewport : Canvas {
 
    void OnMouseMove (object sender, MouseEventArgs e) {
       mSnapPoint.Reset ();
-      mCurrentMousePt = ToCadPoint (e.GetPosition (this));
+      mCurrentMousePt = e.GetPosition (this).Transform (mInvProjXfm).Convert ();
       foreach (var entity in mEntities!) {
          if (mCurrentMousePt.HasNearestPoint (entity.Vertices, 0.5, out var nearestPoint)) {
             mSnapPoint = nearestPoint;
@@ -132,10 +122,7 @@ internal sealed class Viewport : Canvas {
    void OnMouseWheel (object sender, MouseWheelEventArgs e) {
       double zoomFactor = 1.05;
       if (e.Delta > 0) zoomFactor = 1 / zoomFactor;
-      CadPoint cornerA = ToCadPoint (new Point ()),
-               cornerB = ToCadPoint (new Point (mViewportBound.Width, mViewportBound.Height));
-      var b = new Bound (cornerA, cornerB);
-      UpdateProjXform (b.Inflated (mCurrentMousePt, zoomFactor));
+      UpdateProjXform (mViewportBound.Transform (mInvProjXfm).Inflated (mCurrentMousePt, zoomFactor));
       InvalidateVisual ();
    }
 
@@ -157,7 +144,7 @@ internal sealed class Viewport : Canvas {
    }
 
    protected override void OnRender (DrawingContext dc) {
-      var (startPt, endPt) = (ToWindowsPoint (mStartPt), ToWindowsPoint (mCurrentMousePt));
+      var (startPt, endPt) = (Project (mStartPt), Project (mCurrentMousePt));
       var angle = mStartPt.AngleTo (mCurrentMousePt);
       const double delta = 0.5;
       if (angle is < 2.0 and > -2 or > 178.0 and < 182.0) {
@@ -194,7 +181,7 @@ internal sealed class Viewport : Canvas {
                dc.DrawRectangle (Brushes.Transparent, mPreviewPen, new Rect (startPt, endPt));
                break;
             case CircleWidget:
-               var radius = endPt.X - startPt.X;
+               var radius = startPt.DistanceTo (endPt);
                dc.DrawEllipse (Brushes.Transparent, mPreviewPen, startPt, radius, radius);
                break;
          }
@@ -205,22 +192,22 @@ internal sealed class Viewport : Canvas {
             var pen = new Pen (new SolidColorBrush (Color.FromRgb (clr.R, clr.G, clr.B)), entity.LineWeight);
             switch (entity) {
                case Line line:
-                  dc.DrawLine (pen, ToWindowsPoint (line.StartPoint), ToWindowsPoint (line.EndPoint));
+                  dc.DrawLine (pen, Project (line.StartPoint), Project (line.EndPoint));
                   break;
                case Rectangle rect:
-                  dc.DrawRectangle (Brushes.Transparent, pen, new Rect (ToWindowsPoint (rect.StartPoint), ToWindowsPoint (rect.EndPoint)));
+                  dc.DrawRectangle (Brushes.Transparent, pen, new Rect (Project (rect.StartPoint), Project (rect.EndPoint)));
                   break;
                case Circle circle:
-                  var(center, tangent) = (ToWindowsPoint(circle.Center), ToWindowsPoint(circle.EndPoint));
-                  var radius = tangent.X - center.X;
-                  dc.DrawEllipse (Brushes.Transparent, pen, ToWindowsPoint (circle.Center), radius, radius);
+                  var (center, tangent) = (Project (circle.Center), Project (circle.EndPoint));
+                  var radius = center.DistanceTo (tangent);
+                  dc.DrawEllipse (Brushes.Transparent, pen, Project (circle.Center), radius, radius);
                   break;
             }
          }
       }
       if (mSnapPoint.IsSet) {
          var snapSize = 5;
-         var snapPt = ToWindowsPoint (mSnapPoint);
+         var snapPt = Project (mSnapPoint);
          var v = new Vector (snapSize, snapSize);
          dc.DrawRectangle (Brushes.White, mDwgPen, new (snapPt - v, snapPt + v));
       }

@@ -86,7 +86,7 @@ public class LineWidget : Widget {
                break;
                case nameof (DX) or nameof (DY):
                mStartPoint = new (X, Y);
-               base.ReceiveInput (new CadPoint (X + DX, Y + DY));
+               base.ReceiveInput (mStartPoint + (DX, DY));
                UpdateParams ();
                break;
          }
@@ -141,6 +141,22 @@ public class RectWidget : Widget {
    #endregion
 
    #region Methods --------------------------------------------------
+   public override void ReceiveInput (object obj) {
+      if (obj is string parameter) {
+         switch (parameter) {
+            case nameof (X) or nameof (Y):
+               mStartPoint.Reset ();
+               base.ReceiveInput (new CadPoint (X, Y));
+               break;
+            case nameof (Height) or nameof (Width):
+               mStartPoint = new (X, Y);
+               base.ReceiveInput (new CadPoint (X + Width, Y + Height));
+               UpdateParams ();
+               break;
+         }
+      } else base.ReceiveInput (obj);
+   }
+
    public override string ToString () => "Rectangle";
    #endregion
 
