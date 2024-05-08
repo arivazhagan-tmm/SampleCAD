@@ -8,6 +8,7 @@ using VA = System.Windows.VerticalAlignment;
 using HA = System.Windows.HorizontalAlignment;
 using Model;
 using ViewModel;
+using System.CodeDom;
 
 namespace View;
 
@@ -46,7 +47,7 @@ public partial class MainWindow : Window {
       ResetSelection ();
       btn.IsChecked = true;
       mPromptPanel ??= new ContentControl ();
-      mPromptPanel.Content = widget != null && widget.Params != null ? new PromptPanel (widget, widget.Params)
+      mPromptPanel.Content = widget != null && widget.Params != null ? new PromptPanel (widget)
                                                                      : new PromptPanel ();
    }
 
@@ -73,7 +74,16 @@ public partial class MainWindow : Window {
       editMenu.Items.Add (new MenuItem () { Header = "_Undo", Command = ApplicationCommands.Undo });
       editMenu.Items.Add (new MenuItem () { Header = "_Redo", Command = ApplicationCommands.Redo });
       editMenu.Items.Add (new MenuItem () { Header = "_Delete", Command = ApplicationCommands.Delete });
-      editMenu.Items.Add (new MenuItem () { Header = "_SelectAll", Command = ApplicationCommands.SelectAll });
+      var selectAllOption = new MenuItem () {
+         Header = "_SelectAll",
+         Command = ApplicationCommands.SelectAll,
+      };
+      selectAllOption.Click += (s, e) => {
+         if (mViewport is null || mViewport.Entities.Count is 0) return;
+         mViewport.Entities.ForEach (ent => ent.IsSelected = true);
+         mViewport.InvalidateVisual ();
+      };
+      editMenu.Items.Add (selectAllOption);
       menu.Items.Add (fileMenu);
       menu.Items.Add (editMenu);
       menuPanel.Children.Add (menu);
@@ -109,14 +119,15 @@ public partial class MainWindow : Window {
          mViewport.UpdateAxis ();
       };
       KeyDown += (s, e) => {
-         if (e.Key is Key.Escape && mViewport != null) {
-            mViewport.Refresh ();
-         }
+         if (e.Key is Key.Escape && mViewport != null) mViewport.Refresh ();
       };
       var context = new ContextMenu ();
       var clear = new MenuItem () { Header = "Clear" };
+      var zoomExtnd = new MenuItem () { Header = "Zoom Extends" };
       clear.Click += (s, e) => { mViewport.Entities.Clear (); };
+      zoomExtnd.Click += (s, e) => mViewport.ZoomExtends();
       context.Items.Add (clear);
+      context.Items.Add (zoomExtnd);
       viewportPanel.ContextMenu = context;
       viewportPanel.Children.Add (mViewport);
       var sp = new StackPanel ();
@@ -129,6 +140,14 @@ public partial class MainWindow : Window {
       DockPanel.SetDock (mPromptPanel, Dock.Bottom);
       DockPanel.SetDock (optionPanel, Dock.Left);
       mCadUI.Content = dp;
+      CommandBindings.Add (
+         new (ApplicationCommands.SelectAll,
+         (s, e) => {
+            mViewport?.Entities.ForEach (ent => ent.IsSelected = true);
+            mViewport?.InvalidateVisual ();
+         },
+         (s, e) => e.CanExecute = mViewport != null && mViewport.Entities.Count != 0)
+      );
    }
 
    void ResetSelection () {
@@ -150,7 +169,9 @@ internal sealed class PromptPanel : UserControl {
    #region Constructors ---------------------------------------------
    public PromptPanel () { }
 
-   public PromptPanel (Widget widget, params string[] labels) {
+   public PromptPanel (Widget widget) {
+      var labels = widget.Params;
+      if (labels is null || labels.Length is 0) return;
       mWidget = widget;
       var width = 50;
       var sp = new StackPanel { Orientation = Orientation.Horizontal };
