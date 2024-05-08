@@ -80,6 +80,7 @@ internal sealed class Viewport : Canvas {
       UpdateProjXform (mViewportBound);
 
       #region Attaching events --------------------------------------
+      MouseUp += OnMouseUp;
       MouseMove += OnMouseMove;
       MouseWheel += OnMouseWheel; ;
       MouseLeftButtonDown += OnMouseLeftButtonDown;
@@ -87,6 +88,17 @@ internal sealed class Viewport : Canvas {
 
       mCords = new TextBlock () { Background = Brushes.Transparent };
       Children.Add (mCords);
+   }
+
+   void OnMouseUp (object sender, MouseButtonEventArgs e) {
+      if (mIsClip && mEntities != null && mEntities.Any ()) {
+         var bound = new Bound (mStartPt, mCurrentMousePt);
+         foreach (var entity in mEntities.FindAll (ent => ent.Bound.IsInside (bound))) {
+            entity.IsSelected = true;
+         }
+         mStartPt.Reset ();
+         InvalidateVisual ();
+      }
    }
 
    void OnMouseLeftButtonDown (object sender, MouseButtonEventArgs e) {
@@ -116,6 +128,7 @@ internal sealed class Viewport : Canvas {
       }
       if (mSnapPoint.IsSet) mCurrentMousePt = mSnapPoint;
       if (mCords != null) mCords.Text = $"X : {mCurrentMousePt.X}  Y : {mCurrentMousePt.Y}";
+      mIsClip = e.LeftButton is MouseButtonState.Pressed;
       InvalidateVisual ();
    }
 
@@ -171,6 +184,9 @@ internal sealed class Viewport : Canvas {
          dc.DrawLine (mOrthoPen, new (0, endPt.Y), new (mViewportRect.Width, endPt.Y));
          mSnapPoint = mCurrentMousePt;
       }
+      if (mIsClip) {
+         dc.DrawRectangle (Brushes.LightSteelBlue, mDwgPen, new Rect (startPt, endPt));
+      }
 
       if (mStartPt.IsSet && mCurrentMousePt.IsSet) {
          switch (mWidget) {
@@ -219,6 +235,7 @@ internal sealed class Viewport : Canvas {
    #endregion
 
    #region Private Data ---------------------------------------------
+   bool mIsClip;
    double mDwgLineWeight, mViewportWidth, mViewportHeight;
    Rect mViewportRect;
    Axis mHAxis, mVAxis;

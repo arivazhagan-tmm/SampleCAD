@@ -1,5 +1,5 @@
 ﻿namespace Model;
 
 #region Enum EEntity ------------------------------------------------------------------------------
-public enum EEntity { Line, Rectangle, Circle }
+public enum EEntity { Pick, Line, Rectangle, Circle }
 #endregion

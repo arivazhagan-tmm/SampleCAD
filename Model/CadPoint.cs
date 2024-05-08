@@ -124,6 +124,10 @@ public readonly record struct Bound {
    }
 
    public Bound Cloned () => new (MinX, MinY, MaxX, MaxY);
+
+   public bool IsInside (Bound b) => MinX < b.MaxX && MinY < b.MaxY && 
+                                     MaxY < b.MaxY &&
+                                     b.MinX < MinX && b.MinY < MinY;
    #endregion
 
    #region Private Data ---------------------------------------------
