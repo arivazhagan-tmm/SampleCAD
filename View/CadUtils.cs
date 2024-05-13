@@ -28,4 +28,6 @@ internal static class CadUtils {
       max = xfm.Transform (max);
       return new Bound (min.Convert (), max.Convert ());
    }
+
+   public static Point RadialMove (this Point pt, double r, double th) => new (pt.X + r * Cos (th), pt.Y + r * Sin (th));
 }

@@ -40,7 +40,6 @@ public partial class MainWindow : Window {
       switch (entity) {
          case EEntity.Line: widget = new LineWidget (); break;
          case EEntity.Rectangle: widget = new RectWidget (); break;
-         case EEntity.Circle: widget = new CircleWidget (); break;
          default: break;
       }
       mViewport.SetWidget (widget!);
@@ -125,7 +124,7 @@ public partial class MainWindow : Window {
       var clear = new MenuItem () { Header = "Clear" };
       var zoomExtnd = new MenuItem () { Header = "Zoom Extends" };
       clear.Click += (s, e) => { mViewport.Entities.Clear (); };
-      zoomExtnd.Click += (s, e) => mViewport.ZoomExtends();
+      zoomExtnd.Click += (s, e) => mViewport.ZoomExtends ();
       context.Items.Add (clear);
       context.Items.Add (zoomExtnd);
       viewportPanel.ContextMenu = context;
@@ -145,6 +144,14 @@ public partial class MainWindow : Window {
          (s, e) => {
             mViewport?.Entities.ForEach (ent => ent.IsSelected = true);
             mViewport?.InvalidateVisual ();
+         },
+         (s, e) => e.CanExecute = mViewport != null && mViewport.Entities.Count != 0)
+      );
+      CommandBindings.Add (
+         new (ApplicationCommands.Delete,
+         (s, e) => {
+            var entities = mViewport.Entities.Where (ent => ent.IsSelected).ToList ();
+            entities.ForEach (ent => mViewport.Remove (ent));
          },
          (s, e) => e.CanExecute = mViewport != null && mViewport.Entities.Count != 0)
       );

@@ -33,6 +33,12 @@ internal sealed class Viewport : Canvas {
       InvalidateVisual ();
    }
 
+   public void Remove (Entity entity) {
+      if (entity is null || mEntities is null || !mEntities.Contains (entity)) return;
+      mEntities.Remove (entity);
+      InvalidateVisual ();
+   }
+
    public void SetWidget (Widget widget) {
       mWidget = widget;
       mStartPt.Reset ();
@@ -93,12 +99,10 @@ internal sealed class Viewport : Canvas {
    void OnMouseUp (object sender, MouseButtonEventArgs e) {
       if (mIsClip && mEntities != null && mEntities.Any ()) {
          var bound = new Bound (mStartPt, mCurrentMousePt);
-         foreach (var entity in mEntities.FindAll (ent => ent.Bound.IsInside (bound))) {
-            entity.IsSelected = true;
-         }
-         mStartPt.Reset ();
+         foreach (var entity in mEntities.FindAll (ent => ent.Bound.IsInside (bound))) entity.IsSelected = true;
          InvalidateVisual ();
       }
+      if (mIsClip && mWidget is null) mStartPt.Reset ();
    }
 
    void OnMouseLeftButtonDown (object sender, MouseButtonEventArgs e) {
@@ -108,7 +112,10 @@ internal sealed class Viewport : Canvas {
       if (mWidget != null) {
          mWidget.ReceiveInput (pt);
          if (mWidget.Entity != null) {
-            mEntities?.Add (mWidget.Entity);
+            var entity = mWidget.Entity;
+            var bound = entity.Bound;
+            if (bound.MaxX > mViewportWidth || bound.MaxY > mViewportHeight) UpdateProjXform (bound);
+            mEntities?.Add (entity);
             mWidget.Initialize ();
             mStartPt.Reset ();
             mCurrentMousePt.Reset ();
@@ -158,36 +165,36 @@ internal sealed class Viewport : Canvas {
 
    protected override void OnRender (DrawingContext dc) {
       var (startPt, endPt) = (Project (mStartPt), Project (mCurrentMousePt));
-      var angle = mStartPt.AngleTo (mCurrentMousePt);
-      const double delta = 0.5;
-      if (angle is < 2.0 and > -2 or > 178.0 and < 182.0) {
-         dc.DrawLine (mOrthoPen, new (0, startPt.Y), new (mViewportRect.Width, startPt.Y));
-         mSnapPoint = new (mCurrentMousePt.X, mStartPt.Y);
-      }
-      if (angle is > 88.0 and < 92.0 or > 268 and < 272) {
-         dc.DrawLine (mOrthoPen, new (startPt.X, 0), new (startPt.X, mViewportRect.Height));
-         mSnapPoint = new (mStartPt.X, mCurrentMousePt.Y);
-      }
-      if (mCurrentMousePt.Y is < delta and > -delta) {
-         dc.DrawLine (mOrthoPen, new (0, mViewportCenter.Y), new (mViewportRect.Width, mViewportCenter.Y));
-         mSnapPoint = new (mCurrentMousePt.X, 0);
-      }
-      if (mCurrentMousePt.X is < delta and > -delta) {
-         dc.DrawLine (mOrthoPen, new (mViewportCenter.X, 0), new (mViewportCenter.X, mViewportRect.Height));
-         mSnapPoint = new (0, mCurrentMousePt.Y);
-      }
-      if (mEntities != null && mEntities.Any (e => e.Vertices.Any (v => v.X < mCurrentMousePt.X + delta && v.X > mCurrentMousePt.X - delta))) {
-         dc.DrawLine (mOrthoPen, new (endPt.X, 0), new (endPt.X, mViewportRect.Height));
-         mSnapPoint = mCurrentMousePt;
-      }
-      if (mEntities != null && mEntities.Any (e => e.Vertices.Any (v => v.Y < mCurrentMousePt.Y + delta && v.Y > mCurrentMousePt.Y - delta))) {
-         dc.DrawLine (mOrthoPen, new (0, endPt.Y), new (mViewportRect.Width, endPt.Y));
-         mSnapPoint = mCurrentMousePt;
-      }
-      if (mIsClip) {
-         dc.DrawRectangle (Brushes.LightSteelBlue, mDwgPen, new Rect (startPt, endPt));
-      }
-
+      #region Commented --------------------------------------------------
+      //var angle = mStartPt.AngleTo (mCurrentMousePt);
+      //const double delta = 0.5;
+      //if (angle is < 2.0 and > -2 or > 178.0 and < 182.0) {
+      //   dc.DrawLine (mOrthoPen, new (0, startPt.Y), new (mViewportRect.Width, startPt.Y));
+      //   mSnapPoint = new (mCurrentMousePt.X, mStartPt.Y);
+      //}
+      //if (angle is > 88.0 and < 92.0 or > 268 and < 272) {
+      //   dc.DrawLine (mOrthoPen, new (startPt.X, 0), new (startPt.X, mViewportRect.Height));
+      //   mSnapPoint = new (mStartPt.X, mCurrentMousePt.Y);
+      //}
+      //if (mCurrentMousePt.Y is < delta and > -delta) {
+      //   dc.DrawLine (mOrthoPen, new (0, mViewportCenter.Y), new (mViewportRect.Width, mViewportCenter.Y));
+      //   mSnapPoint = new (mCurrentMousePt.X, 0);
+      //}
+      //if (mCurrentMousePt.X is < delta and > -delta) {
+      //   dc.DrawLine (mOrthoPen, new (mViewportCenter.X, 0), new (mViewportCenter.X, mViewportRect.Height));
+      //   mSnapPoint = new (0, mCurrentMousePt.Y);
+      //}
+      //if (mEntities != null && mEntities.Any (e => e.Vertices.Any (v => v.X < mCurrentMousePt.X + delta && v.X > mCurrentMousePt.X - delta))) {
+      //   dc.DrawLine (mOrthoPen, new (endPt.X, 0), new (endPt.X, mViewportRect.Height));
+      //   mSnapPoint = mCurrentMousePt;
+      //}
+      //if (mEntities != null && mEntities.Any (e => e.Vertices.Any (v => v.Y < mCurrentMousePt.Y + delta && v.Y > mCurrentMousePt.Y - delta))) {
+      //   dc.DrawLine (mOrthoPen, new (0, endPt.Y), new (mViewportRect.Width, endPt.Y));
+      //   mSnapPoint = mCurrentMousePt;
+      //}
+      #endregion
+      if (mIsClip && mWidget is null)
+         dc.DrawRectangle (Brushes.LightSteelBlue, mOrthoPen, new Rect (startPt, endPt));
       if (mStartPt.IsSet && mCurrentMousePt.IsSet) {
          switch (mWidget) {
             case LineWidget:
@@ -242,7 +249,7 @@ internal sealed class Viewport : Canvas {
    Bound mViewportBound;
    Point mViewportCenter;
    Matrix mProjXfm, mInvProjXfm;
-   CadPoint mCurrentMousePt, mStartPt, mSnapPoint, mPanStartPt;
+   CadPoint mCurrentMousePt, mStartPt, mSnapPoint;
    Pen? mAxisPen, mBGPen, mDwgPen, mPreviewPen, mOrthoPen;
    Brush? mDwgBrush;
    List<Entity>? mEntities;
