@@ -8,9 +8,19 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <ApplicationIcon>Data\Icon.ico</ApplicationIcon>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Model\Model.csproj" />
     <ProjectReference Include="..\ViewModel\ViewModel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Data\Line.ico" />
+    <Resource Include="Data\Pick.ico" />
+    <Resource Include="Data\Rectangle.ico" />
   </ItemGroup>
 
 </Project>

@@ -128,16 +128,18 @@ internal sealed class Viewport : Canvas {
       mSnapPoint.Reset ();
       mCurrentMousePt = e.GetPosition (this).Transform (mInvProjXfm).Convert ();
       foreach (var entity in mEntities!) {
-         if (mCurrentMousePt.HasNearestPoint (entity.Vertices, 0.5, out var nearestPoint)) {
+         if (mCurrentMousePt.HasNearestPoint (entity.Vertices, mSnapTolerance, out var nearestPoint)) {
             mSnapPoint = nearestPoint;
+            mCurrentMousePt = mSnapPoint;
             break;
          }
       }
-      if (mSnapPoint.IsSet) mCurrentMousePt = mSnapPoint;
       if (mCords != null) mCords.Text = $"X : {mCurrentMousePt.X}  Y : {mCurrentMousePt.Y}";
-      mIsClip = e.LeftButton is MouseButtonState.Pressed;
+      mIsClip = e.LeftButton is MouseButtonState.Pressed && mWidget is null;
       InvalidateVisual ();
    }
+
+   double mSnapTolerance;
 
    void OnMouseWheel (object sender, MouseWheelEventArgs e) {
       double zoomFactor = 1.05;
@@ -147,7 +149,7 @@ internal sealed class Viewport : Canvas {
    }
 
    void UpdateProjXform (Bound b) {
-      var margin = 10.0;
+      var margin = 5.0;
       double scaleX = (mViewportWidth - margin) / b.Width,
              scaleY = (mViewportHeight - margin) / b.Height;
       double scale = Math.Min (scaleX, scaleY);
@@ -155,27 +157,30 @@ internal sealed class Viewport : Canvas {
       xfm.Scale (scale, -scale);
       Point projectedMidPt = xfm.Transform (new Point (b.Mid.X, b.Mid.Y));
       var (dx, dy) = (mViewportCenter.X - projectedMidPt.X, mViewportCenter.Y - projectedMidPt.Y);
-      var translateMatrix = Matrix.Identity;
-      translateMatrix.Translate (dx, dy);
-      xfm.Append (translateMatrix);
+      xfm.Translate (dx, dy);
       mProjXfm = xfm;
       mInvProjXfm = mProjXfm;
       mInvProjXfm.Invert ();
+      mSnapTolerance = b.MaxX * 0.01;
    }
 
    protected override void OnRender (DrawingContext dc) {
       var (startPt, endPt) = (Project (mStartPt), Project (mCurrentMousePt));
+      if (mSnapPoint.IsSet) {
+         dc.DrawLine (mOrthoPen, new (0, endPt.Y), new (mViewportWidth, endPt.Y));
+         dc.DrawLine (mOrthoPen, new (endPt.X, 0), new (endPt.X, mViewportHeight));
+      }
+      var angle = mStartPt.AngleTo (mCurrentMousePt);
+      if (angle is < 2.0 and > -2 or > 178.0 and < 182.0) {
+         dc.DrawLine (mOrthoPen, new (0, startPt.Y), new (mViewportRect.Width, startPt.Y));
+         mSnapPoint = new (mCurrentMousePt.X, mStartPt.Y);
+      }
+      if (angle is > 88.0 and < 92.0 or > 268 and < 272) {
+         dc.DrawLine (mOrthoPen, new (startPt.X, 0), new (startPt.X, mViewportRect.Height));
+         mSnapPoint = new (mStartPt.X, mCurrentMousePt.Y);
+      }
+
       #region Commented --------------------------------------------------
-      //var angle = mStartPt.AngleTo (mCurrentMousePt);
-      //const double delta = 0.5;
-      //if (angle is < 2.0 and > -2 or > 178.0 and < 182.0) {
-      //   dc.DrawLine (mOrthoPen, new (0, startPt.Y), new (mViewportRect.Width, startPt.Y));
-      //   mSnapPoint = new (mCurrentMousePt.X, mStartPt.Y);
-      //}
-      //if (angle is > 88.0 and < 92.0 or > 268 and < 272) {
-      //   dc.DrawLine (mOrthoPen, new (startPt.X, 0), new (startPt.X, mViewportRect.Height));
-      //   mSnapPoint = new (mStartPt.X, mCurrentMousePt.Y);
-      //}
       //if (mCurrentMousePt.Y is < delta and > -delta) {
       //   dc.DrawLine (mOrthoPen, new (0, mViewportCenter.Y), new (mViewportRect.Width, mViewportCenter.Y));
       //   mSnapPoint = new (mCurrentMousePt.X, 0);

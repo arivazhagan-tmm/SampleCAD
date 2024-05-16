@@ -8,7 +8,7 @@ using VA = System.Windows.VerticalAlignment;
 using HA = System.Windows.HorizontalAlignment;
 using Model;
 using ViewModel;
-using System.CodeDom;
+using System.Windows.Media.Imaging;
 
 namespace View;
 
@@ -35,7 +35,7 @@ public partial class MainWindow : Window {
    #region Implementation -------------------------------------------
    void OnButtonClicked (object sender, EventArgs e) {
       if (sender is not ToggleButton btn || mViewport is null) return;
-      if (!Enum.TryParse ($"{btn.Content}", out EEntity entity)) return;
+      if (!Enum.TryParse ($"{btn.ToolTip}", out EEntity entity)) return;
       Widget? widget = null;
       switch (entity) {
          case EEntity.Line: widget = new LineWidget (); break;
@@ -89,18 +89,22 @@ public partial class MainWindow : Window {
 
       var optionPanel = new StackPanel () { Name = "CadOptions", HorizontalAlignment = HA.Left, Margin = new Thickness (0, 50, 0, 0) };
       var btnStyle = new Style ();
-      btnStyle.Setters.Add (new Setter (WidthProperty, 80.0));
-      btnStyle.Setters.Add (new Setter (HeightProperty, 25.0));
-      btnStyle.Setters.Add (new Setter (BackgroundProperty, Brushes.White));
+      btnStyle.Setters.Add (new Setter (WidthProperty, 40.0));
+      btnStyle.Setters.Add (new Setter (HeightProperty, 40.0));
+      btnStyle.Setters.Add (new Setter (BackgroundProperty, Brushes.Transparent));
       btnStyle.Setters.Add (new Setter (MarginProperty, new Thickness (5.0)));
       btnStyle.Setters.Add (new Setter (HorizontalAlignmentProperty, HA.Left));
       btnStyle.Setters.Add (new Setter (VerticalAlignmentProperty, VA.Center));
       var borderStyle = new Style () { TargetType = typeof (Border) };
       borderStyle.Setters.Add (new Setter (Border.CornerRadiusProperty, new CornerRadius (5.0)));
-      borderStyle.Setters.Add (new Setter (Border.BorderThicknessProperty, new Thickness (1.0)));
+      borderStyle.Setters.Add (new Setter (Border.BorderThicknessProperty, new Thickness (5.0)));
       btnStyle.Resources = new ResourceDictionary { [typeof (Border)] = borderStyle };
       foreach (var name in Enum.GetNames (typeof (EEntity))) {
-         var btn = new ToggleButton () { Content = name, Style = btnStyle };
+         var btn = new ToggleButton () {
+            Content = new Image () { Source = new BitmapImage (new Uri ($@"Data\{name}.ico", UriKind.Relative)) },
+            ToolTip = name,
+            Style = btnStyle
+         };
          btn.Click += OnButtonClicked;
          optionPanel.Children.Add (btn);
       }
