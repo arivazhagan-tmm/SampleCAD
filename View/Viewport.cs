@@ -15,10 +15,11 @@ internal sealed class Viewport : Canvas {
 
    #region Properties -----------------------------------------------
    public List<Entity> Entities => mEntities ??= [];
+   public IEnumerable<Entity> SelectedEntities => mEntities?.Where (e => e.IsSelected)!;
    #endregion
 
    #region Methods --------------------------------------------------
-   public void AddEntity (Entity entity) {
+   public void Add (Entity entity) {
       if (entity is null || mEntities is null || mEntities.Contains (entity)) return;
       mEntities.Add (entity);
    }
@@ -53,8 +54,7 @@ internal sealed class Viewport : Canvas {
    }
 
    public void ZoomExtends () {
-      if (mEntities is null || mEntities.Count is 0) return;
-      var bound = new Bound (mEntities.Select (e => e.Bound));
+      var bound = mEntities is null || mEntities.Count is 0 ? mViewportBound : new Bound (mEntities.Select (e => e.Bound));
       UpdateProjXform (bound);
       InvalidateVisual ();
    }
@@ -64,22 +64,23 @@ internal sealed class Viewport : Canvas {
    Point Project (CadPoint pt) => mProjXfm.Transform (pt.Convert ());
 
    void OnLoaded (object sender, RoutedEventArgs e) {
-      Height = 650;
-      Width = 750;
+      Height = 500;
+      Width = 500;
       Background = Brushes.Transparent;
 
       mEntities = [];
       mStartPt = mCurrentMousePt = CadPoint.Default;
       mDwgLineWeight = 1.0;
       mDwgBrush = Brushes.ForestGreen;
-      mAxisPen = new (Brushes.Gray, 0.5);
-      mBGPen = new (Brushes.LightGray, 1.5);
+      mAxisPen = new (Brushes.SlateGray, 0.5);
+      mBGPen = new (Brushes.LightCyan, 0.5);
       mDwgPen = new (Brushes.Black, mDwgLineWeight);
       mPreviewPen = new (mDwgBrush, mDwgLineWeight);
       mOrthoPen = new Pen (Brushes.Blue, 1.0) { DashStyle = DashStyles.Dash };
 
       if (MainWindow.It != null)
          mViewportRect = new Rect (new Size (MainWindow.It.ActualWidth - 120, MainWindow.It.ActualHeight - 100));
+      //mViewportRect = new Rect (new Size (500.0, 500.0));
       (mViewportWidth, mViewportHeight) = (mViewportRect.Width, mViewportRect.Height);
       mViewportBound = new Bound (new (0.0, 0.0), new (mViewportWidth, mViewportHeight));
       mViewportCenter = new Point (mViewportBound.Mid.X, mViewportBound.Mid.Y);
@@ -111,17 +112,23 @@ internal sealed class Viewport : Canvas {
       if (!mStartPt.IsSet) mStartPt = pt;
       if (mWidget != null) {
          mWidget.ReceiveInput (pt);
-         if (mWidget.Entity != null) {
+         if (mWidget is not ITransform && mWidget.Entity != null) {
             var entity = mWidget.Entity;
-            var bound = entity.Bound;
-            if (bound.MaxX > mViewportWidth || bound.MaxY > mViewportHeight) UpdateProjXform (bound);
             mEntities?.Add (entity);
-            mWidget.Initialize ();
-            mStartPt.Reset ();
-            mCurrentMousePt.Reset ();
+            ResetValues ();
+         } else if (mWidget.TransformedEntities != null && mWidget.TransformedEntities.Any ()) {
+            mWidget.OriginalEntities.ToList ().ForEach (Remove);
+            mWidget.TransformedEntities.ToList ().ForEach (Add);
+            ResetValues ();
          }
       }
       InvalidateVisual ();
+
+      void ResetValues () {
+         mWidget.Initialize ();
+         mStartPt.Reset ();
+         mCurrentMousePt.Reset ();
+      }
    }
 
    void OnMouseMove (object sender, MouseEventArgs e) {
@@ -134,6 +141,8 @@ internal sealed class Viewport : Canvas {
             break;
          }
       }
+      var center = mViewportCenter.Convert ();
+      if (!mSnapPoint.IsSet && mCurrentMousePt.DistanceTo (center) <= mSnapTolerance) mCurrentMousePt = mSnapPoint = center;
       if (mCords != null) mCords.Text = $"X : {mCurrentMousePt.X}  Y : {mCurrentMousePt.Y}";
       mIsClip = e.LeftButton is MouseButtonState.Pressed && mWidget is null;
       InvalidateVisual ();
@@ -149,7 +158,7 @@ internal sealed class Viewport : Canvas {
    }
 
    void UpdateProjXform (Bound b) {
-      var margin = 5.0;
+      var margin = 0.0;
       double scaleX = (mViewportWidth - margin) / b.Width,
              scaleY = (mViewportHeight - margin) / b.Height;
       double scale = Math.Min (scaleX, scaleY);
@@ -212,6 +221,20 @@ internal sealed class Viewport : Canvas {
                var radius = startPt.DistanceTo (endPt);
                dc.DrawEllipse (Brushes.Transparent, mPreviewPen, startPt, radius, radius);
                break;
+            case TranslateWidget:
+               var (dx, dy) = startPt.Delta (endPt);
+               var v = new Vector (dx, dy);
+               foreach (var entity in SelectedEntities) {
+                  switch (entity) {
+                     case Line line:
+                        dc.DrawLine (mPreviewPen, Project (line.StartPoint) + v, Project (line.EndPoint) + v);
+                        break;
+                     case Rectangle rect:
+                        dc.DrawRectangle (Brushes.Transparent, mPreviewPen, new Rect (Project (rect.StartPoint) + v, Project (rect.EndPoint) + v));
+                        break;
+                  }
+               }
+               break;
          }
       }
       if (mEntities != null) {
@@ -239,6 +262,10 @@ internal sealed class Viewport : Canvas {
          var v = new Vector (snapSize, snapSize);
          dc.DrawRectangle (Brushes.White, mDwgPen, new (snapPt - v, snapPt + v));
       }
+      var pt = Project (mViewportCenter.Convert ());
+      dc.DrawEllipse (Brushes.White, mDwgPen, pt, 5.0, 5.0);
+      mVAxis = new (new (pt.X, 0), new (pt.X, mViewportHeight));
+      mHAxis = new (new (0, pt.Y), new (mViewportWidth, pt.Y));
       dc.DrawRectangle (Background, mBGPen, mViewportRect);
       dc.DrawLine (mAxisPen, mHAxis.P1, mHAxis.P2);
       dc.DrawLine (mAxisPen, mVAxis.P1, mVAxis.P2);

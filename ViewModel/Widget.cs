@@ -11,6 +11,9 @@ public abstract class Widget : INotifyPropertyChanged {
    public abstract string[]? Params { get; protected set; }
 
    public event PropertyChangedEventHandler? PropertyChanged;
+
+   public List<Entity> OriginalEntities { get => mOriginalEntities; protected set => mOriginalEntities = value; }
+   public List<Entity> TransformedEntities { get => mTransformedEntities; protected set => mTransformedEntities = value; }
    #endregion
 
    #region Methods --------------------------------------------------
@@ -51,6 +54,7 @@ public abstract class Widget : INotifyPropertyChanged {
    protected string[]? mPrompts;
    protected string[]? mParams;
    protected Entity? mEntity;
+   protected List<Entity> mOriginalEntities = [], mTransformedEntities = [];
    protected CadPoint mStartPoint, mEndPoint;
    #endregion
 }
@@ -84,14 +88,13 @@ public class LineWidget : Widget {
                mStartPoint.Reset ();
                base.ReceiveInput (new CadPoint (X, Y));
                break;
-               case nameof (DX) or nameof (DY):
+            case nameof (DX) or nameof (DY):
                mStartPoint = new (X, Y);
                base.ReceiveInput (mStartPoint + (DX, DY));
                UpdateParams ();
                break;
          }
-      }
-      else base.ReceiveInput(obj);
+      } else base.ReceiveInput (obj);
    }
 
    public override string ToString () => "Line";
@@ -213,3 +216,55 @@ public class CircleWidget : Widget {
    #endregion
 }
 #endregion
+
+#region class TranslateWidget ---------------------------------------------------------------------
+public class TranslateWidget : Widget, ITransform {
+   #region Constructors ---------------------------------------------
+   public TranslateWidget (IEnumerable<Entity> entities) {
+      mOriginalEntities = entities.ToList ();
+      mParams = [nameof (DX), nameof (DY)];
+      mPrompts = ["  Pick the start point", "  Pick the end point"];
+      Initialize ();
+   }
+   #endregion
+
+   #region Properties -----------------------------------------------
+   public double DX { get => mDX; set { mDX = value; OnPropertyChanged (nameof (DX)); } }
+   public double DY { get => mDY; set { mDY = value; OnPropertyChanged (nameof (DY)); } }
+   public override string[]? Params { get => mParams; protected set => mParams = value; }
+   public Entity ActualEntity => Entity!;
+   #endregion
+
+   #region Methods --------------------------------------------------
+   public override void ReceiveInput (object obj) {
+      if (obj is string parameter) {
+         switch (parameter) {
+            case nameof (DX) or nameof (DY):
+               base.ReceiveInput (mStartPoint + (DX, DY));
+               UpdateParams ();
+               break;
+         }
+      } else base.ReceiveInput (obj);
+   }
+
+   public override string ToString () => "Translate";
+   #endregion
+
+   #region Implementation -------------------------------------------
+   protected override void CreateEntity () {
+      var (dx, dy) = mStartPoint.Delta (mEndPoint);
+      var xfm = CadMatrix.Translate (new CadVector (dx, dy));
+      mTransformedEntities ??= [];
+      mOriginalEntities.ForEach (e => mTransformedEntities.Add (e.Transformed (xfm)));
+   }
+
+   protected override void UpdateParams () { }
+   #endregion
+
+   #region Private Data ---------------------------------------------
+   double mDX, mDY;
+   #endregion
+}
+#endregion
+
+public interface ITransform { }

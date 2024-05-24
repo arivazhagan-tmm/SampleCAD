@@ -30,4 +30,6 @@ internal static class CadUtils {
    }
 
    public static Point RadialMove (this Point pt, double r, double th) => new (pt.X + r * Cos (th), pt.Y + r * Sin (th));
+
+   public static (double dx, double dy) Delta (this Point p1, Point p2) => (p2.X - p1.X, p2.Y - p1.Y);
 }

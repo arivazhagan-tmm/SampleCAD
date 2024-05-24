@@ -6,11 +6,9 @@ namespace Model;
 public abstract class Entity {
    #region Properties -----------------------------------------------
    public float LineWeight { get => mLineWeight; protected set => mLineWeight = value; }
-   public bool IsSelected
-   {
+   public bool IsSelected {
       get => mIsSelected;
-      set
-      {
+      set {
          mIsSelected = value;
          (mLineWeight, mLayer) = value ? (2.5f, Color.White) : (1.0f, Color.Black);
       }
@@ -20,6 +18,11 @@ public abstract class Entity {
    public virtual List<CadPoint> Vertices => mVertices ??= [mStartPoint, mEndPoint];
    public CadPoint StartPoint { get => mStartPoint; protected set => mStartPoint = value; }
    public CadPoint EndPoint { get => mEndPoint; protected set => mEndPoint = value; }
+   #endregion
+
+   #region Methods --------------------------------------------------
+   public abstract Entity Clone ();
+   public abstract Entity Transformed (CadMatrix xfm);
    #endregion
 
    #region Private Data ---------------------------------------------
@@ -41,13 +44,18 @@ public class Line : Entity {
       mBound = new Bound (p1, p2);
       mLength = p1.DistanceTo (p2);
       (mStartPoint, mEndPoint) = (p1, p2);
-
    }
    #endregion
 
    #region Properties -----------------------------------------------
    public double Length => mLength;
    public double Angle => mAngle;
+   #endregion
+
+   #region Methods --------------------------------------------------
+   public override Entity Clone () => new Line (mStartPoint, mEndPoint);
+
+   public override Entity Transformed (CadMatrix xfm) => new Line (mStartPoint * xfm, mEndPoint * xfm);
    #endregion
 
    #region Private Data ---------------------------------------------
@@ -74,6 +82,11 @@ public class Rectangle : Entity {
    public double Width => mWidth;
    #endregion
 
+   #region Methods --------------------------------------------------
+   public override Entity Clone () => new Rectangle (mStartPoint, mEndPoint);
+   public override Entity Transformed (CadMatrix xfm) => new Rectangle (mStartPoint * xfm, mEndPoint * xfm);
+   #endregion
+
    #region Private Data ---------------------------------------------
    readonly double mHeight, mWidth;
    #endregion
@@ -94,6 +107,11 @@ public class Circle : Entity {
    #region Properties -----------------------------------------------
    public CadPoint Center => mCenter;
    public double Radius => mRadius;
+   #endregion
+
+   #region Methods --------------------------------------------------
+   public override Entity Clone () => new Circle (mStartPoint, mRadius);
+   public override Entity Transformed (CadMatrix xfm) => new Circle (mStartPoint * xfm, mRadius);
    #endregion
 
    #region Private Data ---------------------------------------------

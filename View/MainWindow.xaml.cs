@@ -35,14 +35,18 @@ public partial class MainWindow : Window {
    #region Implementation -------------------------------------------
    void OnButtonClicked (object sender, EventArgs e) {
       if (sender is not ToggleButton btn || mViewport is null) return;
-      if (!Enum.TryParse ($"{btn.ToolTip}", out EEntity entity)) return;
+      if (!Enum.TryParse ($"{btn.ToolTip}", out ECadOption entity)) return;
       Widget? widget = null;
       switch (entity) {
-         case EEntity.Line: widget = new LineWidget (); break;
-         case EEntity.Rectangle: widget = new RectWidget (); break;
+         case ECadOption.Line: widget = new LineWidget (); break;
+         case ECadOption.Rectangle: widget = new RectWidget (); break;
+         case ECadOption.Translate:
+            if (mViewport.Entities.Count > 0 && mViewport.SelectedEntities.Any ())
+               widget = new TranslateWidget (mViewport.SelectedEntities);
+            break;
          default: break;
       }
-      mViewport.SetWidget (widget!);
+      mViewport?.SetWidget (widget!);
       ResetSelection ();
       btn.IsChecked = true;
       mPromptPanel ??= new ContentControl ();
@@ -99,7 +103,7 @@ public partial class MainWindow : Window {
       borderStyle.Setters.Add (new Setter (Border.CornerRadiusProperty, new CornerRadius (5.0)));
       borderStyle.Setters.Add (new Setter (Border.BorderThicknessProperty, new Thickness (5.0)));
       btnStyle.Resources = new ResourceDictionary { [typeof (Border)] = borderStyle };
-      foreach (var name in Enum.GetNames (typeof (EEntity))) {
+      foreach (var name in Enum.GetNames (typeof (ECadOption))) {
          var btn = new ToggleButton () {
             Content = new Image () { Source = new BitmapImage (new Uri ($@"Data\{name}.ico", UriKind.Relative)) },
             ToolTip = name,

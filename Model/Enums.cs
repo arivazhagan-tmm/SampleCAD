@@ -1,5 +1,9 @@
 ﻿namespace Model;
 
-#region Enum EEntity ------------------------------------------------------------------------------
-public enum EEntity { Pick, Line, Rectangle }
+#region Enum ECadOption ---------------------------------------------------------------------------
+public enum ECadOption { Pick, Line, Rectangle, Translate }
+#endregion
+
+#region Enum ETransform ---------------------------------------------------------------------------
+public enum ETransform { Translate, Mirror, Rotate, Scale }
 #endregion

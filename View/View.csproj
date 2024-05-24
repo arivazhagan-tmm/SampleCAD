@@ -13,14 +13,31 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Data\Circle.ico" />
+    <None Remove="Data\Extrude.ico" />
+    <None Remove="Data\Icon.ico" />
+    <None Remove="Data\Mirror.ico" />
+    <None Remove="Data\Rotate.ico" />
+    <None Remove="Data\Scale.ico" />
+    <None Remove="Data\Translate.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Model\Model.csproj" />
     <ProjectReference Include="..\ViewModel\ViewModel.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Data\Circle.ico" />
+    <Resource Include="Data\Extrude.ico" />
+    <Resource Include="Data\Icon.ico" />
     <Resource Include="Data\Line.ico" />
+    <Resource Include="Data\Mirror.ico" />
     <Resource Include="Data\Pick.ico" />
     <Resource Include="Data\Rectangle.ico" />
+    <Resource Include="Data\Rotate.ico" />
+    <Resource Include="Data\Scale.ico" />
+    <Resource Include="Data\Translate.ico" />
   </ItemGroup>
 
 </Project>

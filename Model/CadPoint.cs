@@ -1,4 +1,5 @@
-﻿using static System.Math;
+﻿using System.Numerics;
+using static System.Math;
 
 namespace Model;
 
@@ -31,6 +32,8 @@ public struct CadPoint {
    }
 
    public (double X, double Y) Cords () => (X, Y);
+
+   public (double dx, double dy) Delta (CadPoint p) => (p.X - X, p.Y - Y);
 
    public double DistanceTo (CadPoint p) => Round (Sqrt (Pow (p.X - X, 2) + Pow (p.Y - Y, 2)), 2);
 
@@ -126,11 +129,45 @@ public readonly record struct Bound {
    public Bound Cloned () => new (MinX, MinY, MaxX, MaxY);
 
    public bool IsInside (Bound b) => MinX > b.MinX && MinY > b.MinY && MaxX < b.MaxX && MaxY < b.MaxY;
+
+   public override string ToString () => $"( {MaxX}, {MaxY} )";
    #endregion
 
    #region Private Data ---------------------------------------------
    readonly CadPoint mMid;
    readonly double mHeight, mWidth;
    #endregion
+}
+#endregion
+
+#region struct CadVector --------------------------------------------------------------------------
+public readonly record struct CadVector (double X, double Y) {
+   public static CadVector operator + (CadVector v1, CadVector v2) => new (v1.X + v2.X, v1.Y + v2.Y);
+   public static CadVector operator * (CadVector v, double f) => new (v.X * f, v.Y * f);
+   public static CadVector operator - (CadVector v) => new (-v.X, -v.Y);
+}
+#endregion
+
+#region struct CadMatrix --------------------------------------------------------------------------
+public struct CadMatrix {
+   public CadMatrix (double m11, double m12, double m21, double m22, double dx, double dy)
+      => (M11, M12, M21, M22, DX, DY) = (m11, m12, m21, m22, dx, dy);
+
+   public static CadMatrix Translate (CadVector v) => new (1, 0, 0, 1, v.X, v.Y);
+   public static CadMatrix Scale (double f) => new (f, 0, 0, f, 0, 0);
+   public static CadMatrix Rotate (double theta) {
+      var (s, c) = (Sin (theta), Cos (theta));
+      return new (c, s, -s, c, 0, 0);
+   }
+
+   public static CadPoint operator * (CadPoint p, CadMatrix m)
+      => new (p.X * m.M11 + p.Y * m.M21 + m.DX, p.X * m.M12 + p.Y * m.M22 + m.DY);
+
+   public static CadMatrix operator * (CadMatrix a, CadMatrix b)
+      => new (a.M11 * b.M11 + a.M12 * b.M21, a.M11 * b.M12 + a.M12 * b.M22,
+              a.M21 * b.M11 + a.M22 * b.M21, a.M21 * b.M12 + a.M22 * b.M22,
+              a.DX * b.M11 + a.DY * b.M21 + b.DX, a.DX * b.M12 + a.DY * b.M22 + b.DY);
+
+   public readonly double M11, M12, M21, M22, DX, DY;
 }
 #endregion
