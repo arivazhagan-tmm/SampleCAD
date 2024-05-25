@@ -43,9 +43,12 @@ public struct CadPoint {
       return !nearestPoint.Equals (Default);
    }
 
-   public CadPoint RadialMove (double r, double th) => new (X + r * Cos (th), Y + r * Sin (th));
+    public CadPoint RadialMove ( double r , double th ) {
+        th *= (PI / 180);
+        return new ( X + r * Cos ( th ) , Y + r * Sin ( th ) );
+    }
 
-   public void Reset () => (mX, mY) = (double.NaN, double.NaN);
+    public void Reset () => (mX, mY) = (double.NaN, double.NaN);
 
    public override string ToString () => $"({X}, {Y})";
    #endregion
@@ -154,7 +157,7 @@ public struct CadMatrix {
       => (M11, M12, M21, M22, DX, DY) = (m11, m12, m21, m22, dx, dy);
 
    public static CadMatrix Translate (CadVector v) => new (1, 0, 0, 1, v.X, v.Y);
-   public static CadMatrix Scale (double f) => new (f, 0, 0, f, 0, 0);
+   public static CadMatrix Scale (double scaleX, double scaleY) => new (scaleX, 0, 0, scaleY, 0, 0);
    public static CadMatrix Rotate (double theta) {
       var (s, c) = (Sin (theta), Cos (theta));
       return new (c, s, -s, c, 0, 0);
