@@ -146,8 +146,12 @@ internal sealed class Viewport : Canvas {
         if (!mSnapPoint.IsSet && mCurrentMousePt.DistanceTo ( center ) <= mSnapTolerance) mCurrentMousePt = mSnapPoint = center;
         if (mCords != null) mCords.Text = $"X : {mCurrentMousePt.X}  Y : {mCurrentMousePt.Y}";
         mIsClip = e.LeftButton is MouseButtonState.Pressed && mWidget is null;
-        if (mWidget != null && mWidget.StartPoint.IsSet) {
-            mStartPt = mWidget.StartPoint;
+        if (mWidget != null) {
+            if (mWidget.Entity != null) {
+                Add ( mWidget.Entity );
+                mStartPt.Reset ( );
+            }
+            else if (mWidget.StartPoint.IsSet) mStartPt = mWidget.StartPoint;
             InvalidateVisual ( );
         }
         InvalidateVisual ( );
@@ -236,6 +240,21 @@ internal sealed class Viewport : Canvas {
                                 break;
                             case Rectangle rect:
                                 dc.DrawRectangle ( Brushes.Transparent , mPreviewPen , new Rect ( Project ( rect.StartPoint ) + v , Project ( rect.EndPoint ) + v ) );
+                                break;
+                        }
+                    }
+                    break;
+                case ScaleWidget:
+                    var scale = startPt.DistanceTo ( endPt );
+                    var xfm = CadMatrix.Scale ( scale , scale );
+                    foreach (var entity in SelectedEntities) {
+                        switch (entity) {
+                            case Line line:
+                                dc.DrawLine ( mPreviewPen , Project ( line.StartPoint * xfm ) , Project ( line.EndPoint * xfm ) );
+                                break;
+                            case Rectangle rect:
+                                dc.DrawRectangle ( Brushes.Transparent , mPreviewPen ,
+                                new Rect ( Project ( rect.StartPoint * xfm ) , Project ( rect.EndPoint * xfm ) ) );
                                 break;
                         }
                     }

@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Runtime.Remoting;
 using Model;
 
 namespace ViewModel;
@@ -32,7 +31,7 @@ public abstract class Widget : INotifyPropertyChanged {
                 mPromptIndex++;
                 mStartPoint = pt;
                 mEndPoint.Reset ( );
-                UpdateParams ( );
+                UpdateParameters ( );
             }
         if (mPrompts != null && mPromptIndex < mPrompts.Length) Prompt = mPrompts [ mPromptIndex ];
     }
@@ -47,7 +46,7 @@ public abstract class Widget : INotifyPropertyChanged {
 
     #region Implementation -------------------------------------------
     protected abstract void CreateEntity ( );
-    protected abstract void UpdateParams ( );
+    protected abstract void UpdateParameters ( );
     protected void OnPropertyChanged ( string propertyName ) => PropertyChanged?.Invoke ( this , new PropertyChangedEventArgs ( propertyName ) );
     #endregion
 
@@ -86,20 +85,23 @@ public class LineWidget : Widget {
     #region Methods --------------------------------------------------
     public override void ReceiveInput ( object obj ) {
         if (obj is CadPoint pt) base.ReceiveInput ( pt );
-        //else if (obj is string str) {
-        //    mEndPoint = new ( mX + mDX , mY + mDY );
-        //    switch (str) {
-        //        case nameof ( X ) or nameof ( Y ):
-        //            mStartPoint = new ( mX , mY );
-        //            break;
-        //        case nameof ( Length ) or nameof ( Angle ):
-        //            mEndPoint = mStartPoint.RadialMove ( mLength , mAngle);
-        //            break;
-        //    }
-        //}
-        //else if (obj is int val) {
-        //    mEntity = new Line ( mStartPoint , mEndPoint );
-        //}
+        else if (obj is string str) {
+            mEndPoint = new ( mX + mDX , mY + mDY );
+            switch (str) {
+                case nameof ( X ) or nameof ( Y ) or nameof ( DX ) or nameof ( DY ):
+                    mStartPoint = new ( mX , mY );
+                    UpdateParameters ( );
+                    break;
+                case nameof ( Length ) or nameof ( Angle ):
+                    mStartPoint = new ( mX , mY );
+                    mEndPoint = mStartPoint.RadialMove ( mLength , mAngle );
+                    break;
+            }
+        }
+        else if (obj is int) {
+            mEntity = new Line ( mStartPoint , mEndPoint );
+            UpdateParameters ( );
+        }
     }
 
     public override string ToString ( ) => "Line";
@@ -108,10 +110,10 @@ public class LineWidget : Widget {
     #region Implementation -------------------------------------------
     protected override void CreateEntity ( ) {
         mEntity = new Line ( mStartPoint , mEndPoint );
-        UpdateParams ( );
+        UpdateParameters ( );
     }
 
-    protected override void UpdateParams ( ) {
+    protected override void UpdateParameters ( ) {
         if (mStartPoint.IsSet) (X, Y) = mStartPoint.Cords ( );
         if (mEndPoint.IsSet) {
             (Angle, Length) = (mStartPoint.AngleTo ( mEndPoint ), mStartPoint.DistanceTo ( mEndPoint ));
@@ -146,20 +148,19 @@ public class RectWidget : Widget {
 
     #region Methods --------------------------------------------------
     public override void ReceiveInput ( object obj ) {
-        if (obj is string parameter) {
+        if (obj is CadPoint pt) base.ReceiveInput ( pt );
+        else if (obj is string parameter) {
             switch (parameter) {
                 case nameof ( X ) or nameof ( Y ):
-                    mStartPoint.Reset ( );
-                    base.ReceiveInput ( new CadPoint ( X , Y ) );
+                    mStartPoint = new ( X , Y );
                     break;
                 case nameof ( Height ) or nameof ( Width ):
-                    mStartPoint = new ( X , Y );
-                    base.ReceiveInput ( new CadPoint ( X + Width , Y + Height ) );
-                    UpdateParams ( );
+                    if (!mStartPoint.IsSet) mStartPoint = new ( X , Y );
+                    mEndPoint = new ( X + Width , Y + Height );
                     break;
             }
         }
-        else base.ReceiveInput ( obj );
+        else if (obj is int) mEntity = new Rectangle ( mStartPoint , mEndPoint );
     }
 
     public override string ToString ( ) => "Rectangle";
@@ -172,7 +173,7 @@ public class RectWidget : Widget {
         mEntity = rect;
     }
 
-    protected override void UpdateParams ( ) { if (mStartPoint.IsSet) (X, Y) = mStartPoint.Cords ( ); }
+    protected override void UpdateParameters ( ) { if (mStartPoint.IsSet) (X, Y) = mStartPoint.Cords ( ); }
     #endregion
 
     #region Private Data ---------------------------------------------
@@ -208,7 +209,7 @@ public class CircleWidget : Widget {
         mEntity = new Circle ( mStartPoint , Radius );
     }
 
-    protected override void UpdateParams ( ) {
+    protected override void UpdateParameters ( ) {
         if (mStartPoint.IsSet) (X, Y) = mStartPoint.Cords ( );
     }
     #endregion
@@ -257,7 +258,7 @@ public class TranslateWidget : Widget, ITransform {
         mStartPoint.Reset ( );
     }
 
-    protected override void UpdateParams ( ) { }
+    protected override void UpdateParameters ( ) { }
     #endregion
 
     #region Private Data ---------------------------------------------
@@ -270,29 +271,30 @@ public class ScaleWidget : Widget {
     #region Constructors --------------------------------------------
     public ScaleWidget ( IEnumerable<Entity> entities ) {
         mOriginalEntities = entities.ToList ( );
-        mParams = [ nameof ( DX ) , nameof ( DY ) ];
+        mParams = [ nameof ( ScaleX ) , nameof ( ScaleY ) ];
         mPrompts = [ " Pick the start point" , " Pick the end point" ];
         Initialize ( );
     }
     #endregion
 
     #region Properties ----------------------------------------------
-    public double DX { get => mDX; set { mDX = value; OnPropertyChanged ( nameof ( DX ) ); } }
-    public double DY { get => mDY; set { mDY = value; OnPropertyChanged ( nameof ( DY ) ); } }
+    public double ScaleX { get => mScaleX; set { mScaleX = value; OnPropertyChanged ( nameof ( ScaleX ) ); } }
+    public double ScaleY { get => mScaleY; set { mScaleY = value; OnPropertyChanged ( nameof ( ScaleY ) ); } }
     public override string []? Params { get => mParams; protected set => mParams = value; }
     #endregion
 
     #region Methods -------------------------------------------------
     public override void ReceiveInput ( object obj ) {
-        if (obj is string parameter) {
-            switch (parameter) {
-                case nameof ( DX ) or nameof ( DY ):
-                    base.ReceiveInput ( mStartPoint + (DX, DY) );
-                    UpdateParams ( );
-                    break;
-            }
-        }
-        else base.ReceiveInput ( obj );
+        //if (obj is string parameter) {
+        //    switch (parameter) {
+        //        case nameof ( ScaleX ) or nameof ( ScaleY ):
+        //            base.ReceiveInput ( mStartPoint + (ScaleX, ScaleY) );
+        //            UpdateParameters ( );
+        //            break;
+        //    }
+        //}
+        //else base.ReceiveInput ( obj );
+        if (obj is int) CreateEntity ( );
     }
 
     public override string ToString ( ) => "Scale ";
@@ -300,17 +302,16 @@ public class ScaleWidget : Widget {
 
     #region Implementation ------------------------------------------
     protected override void CreateEntity ( ) {
-        var (dx, dy) = mStartPoint.Delta ( mEndPoint );
-        var xfm = CadMatrix.Scale ( dx , dy );
+        var xfm = CadMatrix.Scale ( mScaleX , mScaleY );
         mTransformedEntities ??= [];
         mOriginalEntities.ForEach ( e => mTransformedEntities.Add ( e.Transformed ( xfm ) ) );
     }
 
-    protected override void UpdateParams ( ) { }
+    protected override void UpdateParameters ( ) { }
     #endregion
 
     #region Private Data --------------------------------------------
-    double mDX, mDY;
+    double mScaleX, mScaleY;
     #endregion
 }
 

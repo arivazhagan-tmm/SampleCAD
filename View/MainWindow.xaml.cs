@@ -44,7 +44,7 @@ public partial class MainWindow : Window {
             case ECadOption.Rectangle: widget = new RectWidget ( ); break;
             case ECadOption.Translate:
                 if (mViewport.Entities.Count > 0 && mViewport.SelectedEntities.Any ( ))
-                    widget = new TranslateWidget ( mViewport.SelectedEntities );
+                    widget = new ScaleWidget ( mViewport.SelectedEntities );
                 break;
             default: break;
         }
@@ -209,7 +209,6 @@ internal sealed class PromptPanel : UserControl {
             tb.PreviewKeyDown += OnPreviewKeyDown;
             tb.GotFocus += ( s , e ) => tb.SelectAll ( );
             tb.LostFocus += ( s , e ) => mWidget?.ReceiveInput ( str );
-            //tb.TextChanged += ( s , e ) => mWidget?.ReceiveInput ( str );
             var binding = new Binding ( str ) { Source = widget , UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged };
             tb.SetBinding ( TextBox.TextProperty , binding );
             sp.Children.Add ( label );
@@ -225,8 +224,10 @@ internal sealed class PromptPanel : UserControl {
         var key = e.Key;
         e.Handled = !((key is >= Key.D0 and <= Key.D9) ||
                       (key is >= Key.NumPad0 and <= Key.NumPad9) ||
-                      (key is Key.Back or Key.Delete or Key.Left or Key.Right or Key.Tab or Key.OemPlus or Key.OemMinus));
+                      (key is Key.Back or Key.Delete or Key.Left or 
+                       Key.Right or Key.Tab or Key.OemPlus or Key.OemMinus));
         if (key is Key.Enter) {
+            mWidget?.ReceiveInput ( tb.Name );
             mWidget?.ReceiveInput ( 0 );
             Keyboard.ClearFocus ( );
         }
