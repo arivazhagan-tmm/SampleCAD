@@ -43,12 +43,12 @@ public struct CadPoint {
       return !nearestPoint.Equals (Default);
    }
 
-    public CadPoint RadialMove ( double r , double th ) {
-        th *= (PI / 180);
-        return new ( X + r * Cos ( th ) , Y + r * Sin ( th ) );
-    }
+   public CadPoint RadialMove (double r, double th) {
+      //th *= (PI / 180);
+      return new (X + r * Cos (th), Y + r * Sin (th));
+   }
 
-    public void Reset () => (mX, mY) = (double.NaN, double.NaN);
+   public void Reset () => (mX, mY) = (double.NaN, double.NaN);
 
    public override string ToString () => $"({X}, {Y})";
    #endregion
