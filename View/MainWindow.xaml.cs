@@ -8,7 +8,6 @@ using VA = System.Windows.VerticalAlignment;
 using HA = System.Windows.HorizontalAlignment;
 using Model;
 using ViewModel;
-using System.Windows.Media.Imaging;
 
 namespace View;
 
@@ -41,8 +40,9 @@ public partial class MainWindow : Window {
       Widget? widget = null;
       switch (option) {
          case ECadOption.Line: widget = new LineWidget (); break;
-         case ECadOption.Rectangle: widget = new RectWidget (); break;
          case ECadOption.Circle: widget = new CircleWidget (); break;
+         case ECadOption.Rectangle: widget = new RectWidget (); break;
+         case ECadOption.Square: widget = new SquareWidget (); break;
          //case ECadOption.Translate:
          //   if (mViewport.Entities.Count > 0 && mViewport.SelectedEntities.Any ())
          //      widget = new TranslateWidget (mViewport.SelectedEntities);
@@ -135,10 +135,14 @@ public partial class MainWindow : Window {
       var context = new ContextMenu ();
       var clear = new MenuItem () { Header = "Clear" };
       var zoomExtnd = new MenuItem () { Header = "Zoom Extends" };
-      clear.Click += (s, e) => { mViewport.Entities.Clear (); };
-      zoomExtnd.Click += (s, e) => mViewport.ZoomExtends ();
+      var grid = new MenuItem () { Header = "Grid", IsCheckable = true };
+      clear.Click += (_, _) => { mViewport.Entities.Clear (); };
+      zoomExtnd.Click += (_, _) => mViewport.ZoomExtends ();
+      grid.Checked += (_, _) => mViewport.Set (ERender.Grid);
+      grid.Unchecked += (_, _) => mViewport.Set (ERender.Grid);
       context.Items.Add (clear);
       context.Items.Add (zoomExtnd);
+      context.Items.Add (grid);
       viewportPanel.ContextMenu = context;
       viewportPanel.Children.Add (mViewport);
       var sp = new StackPanel ();

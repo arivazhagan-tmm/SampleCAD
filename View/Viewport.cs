@@ -4,7 +4,6 @@ using System.Windows.Input;
 using System.Windows.Controls;
 using Model;
 using ViewModel;
-using System.Security.Cryptography.Xml;
 
 namespace View;
 
@@ -41,6 +40,11 @@ internal sealed class Viewport : Canvas {
       InvalidateVisual ();
    }
 
+   public void Set (ERender render) {
+      if (Get (render)) mRender &= ~render;
+      else mRender |= render;
+   }
+
    public void SetWidget (Widget widget) {
       mWidget = widget;
       mStartPt.Reset ();
@@ -63,6 +67,8 @@ internal sealed class Viewport : Canvas {
 
    #region Implementation -------------------------------------------
    Point Convert (CadPoint pt) => mProjXfm.Transform (pt.Convert ());
+
+   bool Get (ERender render) => (mRender & render) != 0;
 
    void OnLoaded (object sender, RoutedEventArgs e) {
       Height = 500;
@@ -164,7 +170,7 @@ internal sealed class Viewport : Canvas {
       UpdateProjXform (mViewportBound.Transform (mInvProjXfm).Inflated (mCurrentMousePt, zoomFactor));
       InvalidateVisual ();
    }
-   
+
    void UpdateProjXform (Bound b) {
       var margin = 0.0;
       double scaleX = (mViewportWidth - margin) / b.Width,
@@ -182,34 +188,46 @@ internal sealed class Viewport : Canvas {
    }
 
    protected override void OnRender (DrawingContext dc) {
-      #region Showing Grids ---------------------
-      var (pen1, pen2) = (new Pen (Brushes.DimGray, 0.15), new Pen (Brushes.DimGray, 0.3));
-      var (w, h) = (mViewportWidth, mViewportHeight);
-      for (int i = 0; i < w; i += 30) {
-         var j = i * 5;
-         dc.DrawLine (pen1, new (0, i), new (w, i));
-         dc.DrawLine (pen2, new (0, j), new (w, j));
-         dc.DrawLine (pen1, new (i, 0), new (i, h));
-         dc.DrawLine (pen2, new (j, 0), new (j, h));
+      var (startPt, endPt) = (Convert (mStartPt), Convert (mCurrentMousePt));
+
+      #region Grids -----------------------------
+      if (Get (ERender.Grid)) {
+         var (pen1, pen2) = (new Pen (Brushes.DimGray, 0.15), new Pen (Brushes.DimGray, 0.3));
+         var (w, h) = (mViewportWidth, mViewportHeight);
+         for (int i = 0; i < w; i += 20) {
+            var j = i * 10;
+            dc.DrawLine (pen1, new (0, i), new (w, i));
+            dc.DrawLine (pen2, new (0, j), new (w, j));
+            dc.DrawLine (pen1, new (i, 0), new (i, h));
+            dc.DrawLine (pen2, new (j, 0), new (j, h));
+         }
       }
       #endregion
 
-      var (startPt, endPt) = (Convert (mStartPt), Convert (mCurrentMousePt));
-      if (mSnapPoint.IsSet) {
-         dc.DrawLine (mOrthoPen, new (0, endPt.Y), new (mViewportWidth, endPt.Y));
-         dc.DrawLine (mOrthoPen, new (endPt.X, 0), new (endPt.X, mViewportHeight));
+      #region Snaps -----------------------------
+      if (Get (ERender.Snap)) {
+         if (mSnapPoint.IsSet) {
+            dc.DrawLine (mOrthoPen, new (0, endPt.Y), new (mViewportWidth, endPt.Y));
+            dc.DrawLine (mOrthoPen, new (endPt.X, 0), new (endPt.X, mViewportHeight));
+            var snapSize = 5;
+            var snapPt = Convert (mSnapPoint);
+            var v = new Vector (snapSize, snapSize);
+            dc.DrawRectangle (Brushes.White, mDwgPen, new (snapPt - v, snapPt + v));
+         }
+         var angle = mStartPt.AngleTo (mCurrentMousePt);
+         if (angle is < 2.0 and > -2 or > 178.0 and < 182.0) {
+            dc.DrawLine (mOrthoPen, new (0, startPt.Y), new (mViewportRect.Width, startPt.Y));
+            mSnapPoint = new (mCurrentMousePt.X, mStartPt.Y);
+         }
+         if (angle is > 88.0 and < 92.0 or > 268 and < 272) {
+            dc.DrawLine (mOrthoPen, new (startPt.X, 0), new (startPt.X, mViewportRect.Height));
+            mSnapPoint = new (mStartPt.X, mCurrentMousePt.Y);
+         }
       }
-      var angle = mStartPt.AngleTo (mCurrentMousePt);
-      if (angle is < 2.0 and > -2 or > 178.0 and < 182.0) {
-         dc.DrawLine (mOrthoPen, new (0, startPt.Y), new (mViewportRect.Width, startPt.Y));
-         mSnapPoint = new (mCurrentMousePt.X, mStartPt.Y);
-      }
-      if (angle is > 88.0 and < 92.0 or > 268 and < 272) {
-         dc.DrawLine (mOrthoPen, new (startPt.X, 0), new (startPt.X, mViewportRect.Height));
-         mSnapPoint = new (mStartPt.X, mCurrentMousePt.Y);
-      }
+      #endregion
 
-      #region Commented --------------------------------------------------
+      #region Commented -------------------------
+      //const double delta = 0.5;
       //if (mCurrentMousePt.Y is < delta and > -delta) {
       //   dc.DrawLine (mOrthoPen, new (0, mViewportCenter.Y), new (mViewportRect.Width, mViewportCenter.Y));
       //   mSnapPoint = new (mCurrentMousePt.X, 0);
@@ -230,7 +248,10 @@ internal sealed class Viewport : Canvas {
 
       if (mIsClip && mWidget is null)
          dc.DrawRectangle (Brushes.LightSteelBlue, mOrthoPen, new Rect (startPt, endPt));
+
+      #region Feedback --------------------------
       if (mStartPt.IsSet && mCurrentMousePt.IsSet) {
+         var dist = startPt.DistanceTo (endPt);
          switch (mWidget) {
             case LineWidget:
                dc.DrawLine (mPreviewPen, startPt, endPt);
@@ -238,12 +259,22 @@ internal sealed class Viewport : Canvas {
             case RectWidget:
                dc.DrawRectangle (Brushes.Transparent, mPreviewPen, new Rect (startPt, endPt));
                break;
+            case SquareWidget:
+               var quadrant = startPt.Quadrant (endPt);
+               var theta = 45.0;
+               switch (quadrant) {
+                  case EQuadrant.I: theta *= -3; break;
+                  case EQuadrant.II: theta *= -1; break;
+                  case EQuadrant.IV: theta *= 3; break;
+               }
+               var diagonal = startPt.RadialMove (dist, theta);
+               dc.DrawRectangle (Brushes.Transparent, mPreviewPen, new Rect (startPt, diagonal));
+               break;
             case CircleWidget:
                var radius = startPt.DistanceTo (endPt);
                dc.DrawEllipse (Brushes.Transparent, mPreviewPen, startPt, radius, radius);
                break;
             case PlaneWidget:
-               var dist = startPt.DistanceTo (endPt);
                var (v1, v2) = (startPt.RadialMove (dist, -45.0), endPt.RadialMove (dist, -45.0));
                dc.DrawLine (mPreviewPen, startPt, endPt);
                dc.DrawLine (mPreviewPen, startPt, v1);
@@ -281,6 +312,9 @@ internal sealed class Viewport : Canvas {
                break;
          }
       }
+      #endregion
+
+      #region Entities --------------------------
       if (mEntities != null) {
          foreach (var entity in mEntities) {
             var clr = entity.Layer;
@@ -307,12 +341,9 @@ internal sealed class Viewport : Canvas {
             }
          }
       }
-      if (mSnapPoint.IsSet) {
-         var snapSize = 5;
-         var snapPt = Convert (mSnapPoint);
-         var v = new Vector (snapSize, snapSize);
-         dc.DrawRectangle (Brushes.White, mDwgPen, new (snapPt - v, snapPt + v));
-      }
+      #endregion
+
+      #region Axes ------------------------------
       var pt = Convert (mViewportCenter.Convert ());
       dc.DrawEllipse (Brushes.White, mDwgPen, pt, 5.0, 5.0);
       mVAxis = new (new (pt.X, 0), new (pt.X, mViewportHeight));
@@ -320,6 +351,8 @@ internal sealed class Viewport : Canvas {
       dc.DrawRectangle (Background, mBGPen, mViewportRect);
       dc.DrawLine (mAxisPen, mHAxis.P1, mHAxis.P2);
       dc.DrawLine (mAxisPen, mVAxis.P1, mVAxis.P2);
+      #endregion
+
       base.OnRender (dc);
    }
    #endregion
@@ -338,6 +371,7 @@ internal sealed class Viewport : Canvas {
    List<Entity>? mEntities;
    Widget? mWidget;
    TextBlock? mCords;
+   ERender mRender = 0;
    #endregion
 }
 #endregion

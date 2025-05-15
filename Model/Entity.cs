@@ -93,6 +93,10 @@ public class Rectangle : Entity {
 }
 #endregion
 
+public class Square : Rectangle {
+   public Square (CadPoint firstCorner, CadPoint secondCorner) : base (firstCorner, secondCorner) { }
+}
+
 #region class Circle ------------------------------------------------------------------------------
 public class Circle : Entity {
    #region Constructors ---------------------------------------------

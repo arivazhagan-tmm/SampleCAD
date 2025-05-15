@@ -248,6 +248,19 @@ public class PlaneWidget : Widget {
 }
 #endregion
 
+public class SquareWidget : Widget {
+   public SquareWidget () {
+      Initialize ();
+   }
+
+   public override string[]? Params { get => mParams; protected set => mParams = value; }
+
+   protected override void CreateEntity () { }
+
+   protected override void UpdateParameters () {
+   }
+}
+
 #region class TranslateWidget ---------------------------------------------------------------------
 public class TranslateWidget : Widget, ITransform {
    #region Constructors ---------------------------------------------
