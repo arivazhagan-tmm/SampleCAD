@@ -87,7 +87,6 @@ internal sealed class Viewport : Canvas {
 
       if (MainWindow.It != null)
          mViewportRect = new Rect (new Size (MainWindow.It.ActualWidth - 120, MainWindow.It.ActualHeight - 100));
-      //mViewportRect = new Rect (new Size (500.0, 500.0));
       (mViewportWidth, mViewportHeight) = (mViewportRect.Width, mViewportRect.Height);
       mViewportBound = new Bound (new (0.0, 0.0), new (mViewportWidth, mViewportHeight));
       mViewportCenter = new Point (mViewportBound.Mid.X, mViewportBound.Mid.Y);
@@ -105,7 +104,7 @@ internal sealed class Viewport : Canvas {
    }
 
    void OnMouseUp (object sender, MouseButtonEventArgs e) {
-      if (mIsClip && mEntities != null && mEntities.Any ()) {
+      if (mIsClip && mEntities != null && mEntities.Count != 0) {
          var bound = new Bound (mStartPt, mCurrentMousePt);
          foreach (var entity in mEntities.FindAll (ent => ent.Bound.IsInside (bound))) entity.IsSelected = true;
          InvalidateVisual ();
@@ -157,7 +156,6 @@ internal sealed class Viewport : Canvas {
             Add (mWidget.Entity);
             mStartPt.Reset ();
          } else if (mWidget.StartPoint.IsSet) mStartPt = mWidget.StartPoint;
-         InvalidateVisual ();
       }
       InvalidateVisual ();
    }
@@ -268,6 +266,7 @@ internal sealed class Viewport : Canvas {
                   case EQuadrant.IV: theta *= 3; break;
                }
                var diagonal = startPt.RadialMove (dist, theta);
+               
                dc.DrawRectangle (Brushes.Transparent, mPreviewPen, new Rect (startPt, diagonal));
                break;
             case CircleWidget:

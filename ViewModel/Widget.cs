@@ -248,18 +248,38 @@ public class PlaneWidget : Widget {
 }
 #endregion
 
+#region class SquareWidget ------------------------------------------------------------------------
 public class SquareWidget : Widget {
+   #region Constructors ---------------------------------------------
    public SquareWidget () {
+      mParams = [nameof (X), nameof (Y), nameof (Side)];
+      mPrompts = ["Pick the first corner", "Pick the opposite corner"];
       Initialize ();
    }
+   #endregion
 
+   #region Properties -----------------------------------------------
+   public double X { get => mX; set { mX = value; OnPropertyChanged (nameof (X)); } }
+   public double Y { get => mY; set { mY = value; OnPropertyChanged (nameof (Y)); } }
+   public double Side { get => mSide; set { mSide = value; OnPropertyChanged (nameof (mSide)); } }
    public override string[]? Params { get => mParams; protected set => mParams = value; }
+   #endregion
 
-   protected override void CreateEntity () { }
-
-   protected override void UpdateParameters () {
+   #region Implementation -------------------------------------------
+   protected override void CreateEntity () {
+      var sqr = new Square (mStartPoint, mEndPoint);
+      mSide = sqr.Bound.MaxX;
+      mEntity = sqr;
    }
+
+   protected override void UpdateParameters () { }
+   #endregion
+
+   #region Private Data ---------------------------------------------
+   double mX, mY, mSide;
+   #endregion
 }
+#endregion
 
 #region class TranslateWidget ---------------------------------------------------------------------
 public class TranslateWidget : Widget, ITransform {

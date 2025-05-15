@@ -135,14 +135,12 @@ public partial class MainWindow : Window {
       var context = new ContextMenu ();
       var clear = new MenuItem () { Header = "Clear" };
       var zoomExtnd = new MenuItem () { Header = "Zoom Extends" };
-      var grid = new MenuItem () { Header = "Grid", IsCheckable = true };
       clear.Click += (_, _) => { mViewport.Entities.Clear (); };
       zoomExtnd.Click += (_, _) => mViewport.ZoomExtends ();
-      grid.Checked += (_, _) => mViewport.Set (ERender.Grid);
-      grid.Unchecked += (_, _) => mViewport.Set (ERender.Grid);
       context.Items.Add (clear);
       context.Items.Add (zoomExtnd);
-      context.Items.Add (grid);
+      CreateRenderOptions (ERender.Grid);
+      CreateRenderOptions(ERender.Snap);
       viewportPanel.ContextMenu = context;
       viewportPanel.Children.Add (mViewport);
       var sp = new StackPanel ();
@@ -171,6 +169,14 @@ public partial class MainWindow : Window {
          },
          (s, e) => e.CanExecute = mViewport != null && mViewport.Entities.Count != 0)
       );
+
+      void CreateRenderOptions (ERender render) {
+         var header = Enum.GetName (typeof (ERender), render);
+         var item = new MenuItem () { Header = header, IsCheckable = true };
+         item.Checked += (_, _) => mViewport?.Set (render);
+         item.Unchecked += (_, _) => mViewport?.Set (render);
+         context.Items.Add (item);
+      }
    }
 
    void ResetSelection () {
